@@ -4,7 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 認証と接続設定
-CREDENTIALS_FILE = r"C:\Users\oobak\OneDrive\kyudai\study\three\summer\kyoso_programing\test\student-465406-8c6c35e39ecf.json"
+CREDENTIALS_FILE = "student-465406-8c6c35e39ecf.json"
 SPREADSHEET_ID = "1ia3ljvxeVCgZo5gXryN96yHHlDwlv6THmLDmM8UiI1U"
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
