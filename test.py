@@ -1,9 +1,9 @@
 import streamlit as st
-import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
 
-# 認証と接続設定
+# ここに JSON ファイルの内容をそのまま dict として記載する
 SERVICE_ACCOUNT_INFO = {
   "type": "service_account",
   "project_id": "student-465406",
@@ -18,9 +18,12 @@ SERVICE_ACCOUNT_INFO = {
   "universe_domain": "googleapis.com"
 }
 
+SPREADSHEET_ID = "1ia3ljvxeVCgZo5gXryN96yHHlDwlv6THmLDmM8UiI1U"
+
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(SERVICE_ACCOUNT_INFO, scope)
 client = gspread.authorize(creds)
+
 
 # expected_headers for lecture sheet
 LECTURE_HEADERS = [
