@@ -43,11 +43,19 @@ def student_page():
 
         col1, col2, col3 = st.columns(3)
 
-        if col1.button("プロフィール編集"):
+        # 3つの変数にそれぞれのボタンの戻り値を入れる
+        btn_profile = col1.button("プロフィール編集")
+        btn_teacher = col2.button("先生検索")
+        btn_lecture = col3.button("授業検索")
+
+        if btn_profile:
             st.session_state.page = "プロフィール編集"
+            st.rerun()
 
-        if col2.button("先生検索"):
+        if btn_teacher:
             st.session_state.page = "先生検索"
+            st.rerun()
 
-        if col3.button("授業検索"):
+        if btn_lecture:
             st.session_state.page = "授業検索"
+            st.rerun()

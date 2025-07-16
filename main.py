@@ -2,6 +2,7 @@ import streamlit as st
 from student_page import student_page
 from lecture_page import lecture_page
 from teacher_page import teacher_page
+from edit_profile import profile_edit_page
 
 if "page" not in st.session_state:
     st.session_state.page = "学生情報登録"
@@ -9,7 +10,7 @@ if "page" not in st.session_state:
 if st.session_state.page == "学生情報登録":
     student_page()
 elif st.session_state.page == "プロフィール編集":
-    student_page()  # ここで student_page() 内でプロフィール編集UIを追加すればOK
+    profile_edit_page()
 elif st.session_state.page == "先生検索":
     teacher_page()
 elif st.session_state.page == "授業検索":
