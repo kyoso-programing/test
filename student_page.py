@@ -3,35 +3,51 @@ import pandas as pd
 from auth import client, SPREADSHEET_ID
 
 def student_page():
-    st.title("🎓 学生情報登録")
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
     students = sheet.get_all_records()
 
     student_ids = [str(s["student_id"]) for s in students if "student_id" in s]
 
-    if students:
-        st.info("✅ 学生情報はすでに登録されています。追加する場合は重複しない学籍番号で登録してください。")
+    if "student_registered" not in st.session_state:
+        # まだセッション変数がない場合、登録状況から初期化
+        st.session_state.student_registered = len(students) > 0
 
-    with st.form("student_form"):
-        student_id = st.text_input("学籍番号")
-        name = st.text_input("名前")
-        interests_input = st.text_input("興味分野（カンマ区切り）", placeholder="例：物理学,AI,留学")
-        total_required_credits = st.number_input("必要単位数", min_value=0, value=124)
-        earned_credits = st.number_input("取得済み単位数", min_value=0, value=0)
+    if not st.session_state.student_registered:
+        st.title("🎓 学生情報登録（初回のみ）")
 
-        submitted = st.form_submit_button("追加する")
+        with st.form("student_register_form"):
+            student_id = st.text_input("学籍番号")
+            name = st.text_input("名前")
+            submitted = st.form_submit_button("登録する")
 
-        if submitted:
-            if not student_id or not name:
-                st.warning("学籍番号と名前は必須です。")
-            elif student_id in student_ids:
-                st.error(f"学籍番号 {student_id} は既に登録されています。")
-            else:
-                interests = ";".join([s.strip() for s in interests_input.split(",")])
-                new_row = [student_id, name, interests, total_required_credits, earned_credits]
-                try:
-                    sheet.append_row(new_row)
-                    st.success(f"{name} さんの情報を追加しました ✅")
-                except Exception as e:
-                    st.error("スプレッドシートへの保存に失敗しました。")
-                    st.exception(e)
+            if submitted:
+                if not student_id or not name:
+                    st.warning("学籍番号と名前は必須です。")
+                elif student_id in student_ids:
+                    st.error(f"学籍番号 {student_id} は既に登録されています。")
+                else:
+                    # 最小限で登録（詳細は後から編集）
+                    new_row = [student_id, name, "", 0, 0]
+                    try:
+                        sheet.append_row(new_row)
+                        st.success(f"{name} さんを登録しました ✅")
+                        st.session_state.student_registered = True
+                        st.experimental_rerun()  # 登録後に画面を更新
+                    except Exception as e:
+                        st.error("スプレッドシートへの保存に失敗しました。")
+                        st.exception(e)
+    else:
+        st.title("✅ 登録済み")
+
+        st.info("学生情報が登録済みです。以下の操作を選んでください。")
+
+        col1, col2, col3 = st.columns(3)
+
+        if col1.button("プロフィール編集"):
+            st.session_state.page = "プロフィール編集"
+
+        if col2.button("先生検索"):
+            st.session_state.page = "先生検索"
+
+        if col3.button("授業検索"):
+            st.session_state.page = "授業検索"
