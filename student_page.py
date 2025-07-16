@@ -3,59 +3,59 @@ import pandas as pd
 from auth import client, SPREADSHEET_ID
 
 def student_page():
-    sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
-    students = sheet.get_all_records()
+    st.title("🏠 学生情報登録 / 確認")
 
-    student_ids = [str(s["student_id"]) for s in students if "student_id" in s]
+    # セッション初期化
+    if "current_student_id" not in st.session_state:
+        st.session_state.current_student_id = None
 
-    if "student_registered" not in st.session_state:
-        # まだセッション変数がない場合、登録状況から初期化
-        st.session_state.student_registered = len(students) > 0
+    student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
+    students = student_sheet.get_all_records()
+    df_students = pd.DataFrame(students)
 
-    if not st.session_state.student_registered:
-        st.title("🎓 学生情報登録（初回のみ）")
+    if st.session_state.current_student_id:
+        # セッションに student_id が保存されていればすぐ次に進める
+        student_id = st.session_state.current_student_id
+        student_row = df_students[df_students["student_id"] == student_id]
+        student_name = student_row.iloc[0]["name"]
+        st.success(f"ようこそ、{student_name} さん！")
 
-        with st.form("student_register_form"):
-            student_id = st.text_input("学籍番号")
-            name = st.text_input("名前")
-            submitted = st.form_submit_button("登録する")
-
-            if submitted:
-                if not student_id or not name:
-                    st.warning("学籍番号と名前は必須です。")
-                elif student_id in student_ids:
-                    st.error(f"学籍番号 {student_id} は既に登録されています。")
-                else:
-                    # 最小限で登録（詳細は後から編集）
-                    new_row = [student_id, name, "", 0, 0]
-                    try:
-                        sheet.append_row(new_row)
-                        st.success(f"{name} さんを登録しました ✅")
-                        st.session_state.student_registered = True
-                        st.experimental_rerun()  # 登録後に画面を更新
-                    except Exception as e:
-                        st.error("スプレッドシートへの保存に失敗しました。")
-                        st.exception(e)
-    else:
-        st.title("✅ 登録済み")
-
-        st.info("学生情報が登録済みです。以下の操作を選んでください。")
-
-        col1, col2, col3 = st.columns(3)
-
-        # 3つの変数にそれぞれのボタンの戻り値を入れる
-        btn_profile = col1.button("プロフィール編集")
-        btn_teacher = col2.button("先生検索")
-        btn_lecture = col3.button("授業検索")
-
-        if btn_profile:
+        col1, col2, col3, col4 = st.columns(4)
+        if col1.button("プロフィール編集"):
             st.session_state.page = "プロフィール編集"
             st.rerun()
-
-        if btn_teacher:
+        if col2.button("先生検索"):
             st.session_state.page = "先生検索"
             st.rerun()
-
-        if btn_lecture:
+        if col3.button("授業検索"):
             st.session_state.page = "授業検索"
             st.rerun()
+        if col4.button("口コミ"):
+            st.session_state.page = "口コミ"
+            st.rerun()
+    else:
+        # まだログインしていなければ student_id 入力を要求
+        student_id = st.text_input("あなたの学籍番号を入力")
+
+        if student_id:
+            student_row = df_students[df_students["student_id"] == student_id]
+
+            if not student_row.empty:
+                student_name = student_row.iloc[0]["name"]
+                st.session_state.current_student_id = student_id  # セッションに保存
+                st.success(f"ようこそ、{student_name} さん！次に進めます。")
+                st.rerun()
+
+            else:
+                st.warning(f"学籍番号 {student_id} は未登録です。名前を入力して登録してください。")
+                name = st.text_input("名前", key="name_input")
+
+                if st.button("新規登録"):
+                    if name:
+                        new_row = [student_id, name, "", 124, 0]
+                        student_sheet.append_row(new_row)
+                        st.session_state.current_student_id = student_id  # セッションに保存
+                        st.success(f"{name} さんを新規登録しました ✅")
+                        st.rerun()
+                    else:
+                        st.warning("名前を入力してください。")
