@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
 from auth import client, SPREADSHEET_ID
+from datetime import datetime
 
-def review():
-    st.title("📝 プロフィール編集 + 履修管理")
 
-    # セッションから student_id 取得
+def review_page():
+    st.title("🗣️ 授業レビュー（口コミ）ページ")
+
     student_id = st.session_state.get("current_student_id", None)
-
     if not student_id:
         st.error("❌ 学籍番号が確認されていません。先に学生情報登録画面で確認してください。")
         if st.button("🏠 ホームに戻る"):
@@ -15,151 +15,37 @@ def review():
             st.rerun()
         return
 
-    # スプレッドシート接続
-    student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
+    review_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("review")
     lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
+    df_reviews = pd.DataFrame(review_sheet.get_all_records())
+    df_lectures = pd.DataFrame(lecture_sheet.get_all_records())
 
-    students = student_sheet.get_all_records()
-    lectures = lecture_sheet.get_all_records()
+    st.subheader("⭐ レビュー投稿")
+    lecture_options = df_lectures["subject_name"].dropna().unique().tolist()
+    selected_lecture = st.selectbox("授業を選択", lecture_options)
+    review_text = st.text_area("レビュー内容")
+    rating = st.slider("評価（1〜5）", 1, 5, 3)
 
-    df_students = pd.DataFrame(students)
-    df_lectures = pd.DataFrame(lectures)
-
-    student_row = df_students[df_students["student_id"] == student_id]
-
-    if not student_row.empty:
-        student_data = student_row.iloc[0]
-        st.success(f"ようこそ、{student_data['name']} さん！")
-
-        # 現在の履修授業
-        raw_subjects = student_data.get("subject_name", "")
-        selected_subjects = [s.strip() for s in raw_subjects.split(";") if s.strip()]
-
-        st.subheader("現在の履修授業一覧")
-        st.write(selected_subjects if selected_subjects else "（なし）")
-
-        # 履修授業の削除機能
-        st.subheader("履修登録を削除")
-        if selected_subjects:
-            subject_to_remove = st.selectbox("削除したい授業を選択", selected_subjects, key="remove_select")
-            if st.button("この授業を削除"):
-                selected_subjects.remove(subject_to_remove)
-                new_subjects = ";".join(selected_subjects)
-
-                idx = df_students.index[df_students["student_id"] == student_id][0]
-                df_students.at[idx, "subject_name"] = new_subjects
-
-                # 保存
-                student_sheet.clear()
-                student_sheet.append_row(df_students.columns.tolist())
-                for _, row in df_students.iterrows():
-                    student_sheet.append_row(list(row.values))
-
-                st.success(f"授業「{subject_to_remove}」を削除しました ✅")
-                st.rerun()
-
-        # 授業検索・追加登録
-        st.subheader("授業を追加で履修登録")
-        search_query = st.text_input("授業名 / 教員名 / 学期 / 曜日 で検索")
-
-        if search_query:
-            mask = (
-                df_lectures['subject_name'].str.contains(search_query, case=False, na=False) |
-                df_lectures['teacher_name1'].str.contains(search_query, case=False, na=False) |
-                df_lectures['semester'].astype(str).str.contains(search_query, case=False, na=False) |
-                df_lectures['day_period'].astype(str).str.contains(search_query, case=False, na=False)
-            )
-            results = df_lectures[mask]
-            st.dataframe(results)
-
-            if not results.empty:
-                results["label"] = results.apply(lambda row: f"{row['subject_name']} ({row['class_id']})", axis=1)
-                selected_label = st.selectbox("この中から追加登録する授業を選択", results["label"].tolist())
-
-                selected_row = results[results["label"] == selected_label].iloc[0]
-                selected_subject = selected_row["label"]
-
-                if st.button("この授業を履修登録"):
-                    if selected_subject in selected_subjects:
-                        st.warning(f"授業「{selected_subject}」は既に登録されています。")
-                    else:
-                        selected_subjects.append(selected_subject)
-                        new_subjects = ";".join(selected_subjects)
-
-                        idx = df_students.index[df_students["student_id"] == student_id][0]
-                        df_students.at[idx, "subject_name"] = new_subjects
-
-                        # 保存
-                        student_sheet.clear()
-                        student_sheet.append_row(df_students.columns.tolist())
-                        for _, row in df_students.iterrows():
-                            student_sheet.append_row(list(row.values))
-
-                        st.success(f"授業「{selected_subject}」を履修登録しました ✅")
-                        st.rerun()
-
-        # 時間割確認
-        if selected_subjects:
-            st.subheader("🕘 時間割確認")
-            selected_subject_ids = [s.split("(")[-1].strip(")") for s in selected_subjects]
-            selected_lectures = df_lectures[df_lectures["class_id"].astype(str).isin(selected_subject_ids)]
-            st.dataframe(selected_lectures[["subject_name", "day_period"]])
-
-            timetable = {}
-            conflicts = []
-            missing_info_subjects = []
-
-            for _, row in selected_lectures.iterrows():
-                day_period = str(row["day_period"]).strip()
-
-                if not day_period:
-                    missing_info_subjects.append(f"{row['subject_name']} ({row['class_id']})")
-                    continue
-
-                if day_period in timetable:
-                    conflicts.append((day_period, timetable[day_period], f"{row['subject_name']} ({row['class_id']})"))
-                else:
-                    timetable[day_period] = f"{row['subject_name']} ({row['class_id']})"
-
-            # 曜日・時限未登録の授業に対する対応
-            if missing_info_subjects:
-                st.info("⚠️ 以下の授業は曜日・時限が未登録です。登録してください:")
-
-                for i, subj_label in enumerate(missing_info_subjects):
-                    st.write(f"🔹 {subj_label}")
-                    subj_id = subj_label.split("(")[-1].strip(")")
-
-                    input_day = st.text_input(f"{subj_label} の曜日", key=f"input_day_{i}")
-                    input_period = st.text_input(f"{subj_label} の時限", key=f"input_period_{i}")
-
-                    if st.button(f"{subj_label} を更新", key=f"update_{i}"):
-                        lecture_idx = df_lectures.index[df_lectures["class_id"].astype(str) == subj_id].tolist()
-                        if lecture_idx:
-                            idx = lecture_idx[0]
-                            df_lectures.at[idx, "day_period"] = f"{input_day}-{input_period}"
-
-                            # 保存
-                            lecture_sheet.clear()
-                            lecture_sheet.append_row(df_lectures.columns.tolist())
-                            for _, row in df_lectures.iterrows():
-                                lecture_sheet.append_row(list(row.values))
-
-                            st.success(f"{subj_label} の曜日・時限を更新しました ✅")
-                            st.rerun()
-                        else:
-                            st.error(f"授業「{subj_label}」が lecture シートに見つかりません。")
-
-            # 時間割の重複チェック
-            if conflicts:
-                st.warning("⚠️ 以下の時間に授業が重複しています:")
-                for day_period, subj1, subj2 in conflicts:
-                    st.write(f"- {day_period}: 「{subj1}」 と 「{subj2}」")
-            else:
-                st.info("✅ 時間割に重複はありません。")
-
-    else:
-        st.error(f"❌ 学籍番号 {student_id} は student シートに存在しません。")
-
-    if st.button("🏠 ホームに戻る"):
-        st.session_state.page = "学生情報登録"
+    if st.button("レビューを投稿"):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        new_row = [student_id, selected_lecture, review_text, rating, now]
+        review_sheet.append_row(new_row)
+        st.success("レビューを投稿しました ✅")
         st.rerun()
+
+    st.subheader("📋 掲載中のレビュー")
+    if df_reviews.empty:
+        st.info("レビューはまだ投稿されていません。")
+    else:
+        df_reviews = df_reviews[df_reviews["lecture_name"].isin(lecture_options)]
+        for i, row in df_reviews.iterrows():
+            st.markdown(f"### {row['lecture_name']}")
+            st.write(f"🗣️ {row['review_text']}")
+            st.write(f"⭐ 評価: {row['rating']} / 5")
+            st.caption(f"投稿日: {row['timestamp']}")
+
+            if row['student_id'] == student_id:
+                if st.button("🗑️ 削除", key=f"delete_{i}"):
+                    review_sheet.delete_rows(i + 2)  # ヘッダー行が1行目なので+2
+                    st.success("レビューを削除しました ✅")
+                    st.rerun()

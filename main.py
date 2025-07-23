@@ -3,7 +3,7 @@ from student_page import student_page
 from lecture_page import lecture_page
 from teacher_page import teacher_page
 from edit_profile import profile_edit_page
-from review_page import review  # 口コミページ
+from review_page import review_page  # 口コミページ
 
 # 初期化
 if "page" not in st.session_state:
@@ -32,4 +32,4 @@ elif st.session_state.page == "先生検索":
 elif st.session_state.page == "授業検索":
     lecture_page()
 elif st.session_state.page == "口コミ":
-    review()
+    review_page()
