@@ -44,7 +44,7 @@ def lecture_page():
             df_lectures['subject_name'].str.contains(search_query, case=False, na=False) |
             df_lectures['teacher_name1'].str.contains(search_query, case=False, na=False) |
             df_lectures['semester'].astype(str).str.contains(search_query, case=False, na=False) |
-            df_lectures['day'].astype(str).str.contains(search_query, case=False, na=False)
+            df_lectures['day_period'].astype(str).str.contains(search_query, case=False, na=False)
         )
 
         results = df_lectures[mask]
