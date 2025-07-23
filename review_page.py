@@ -15,7 +15,7 @@ def review_page():
             st.rerun()
         return
 
-    review_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("review")
+    review_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("reviews")
     lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
     df_reviews = pd.DataFrame(review_sheet.get_all_records())
     df_lectures = pd.DataFrame(lecture_sheet.get_all_records())
