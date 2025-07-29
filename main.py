@@ -1,9 +1,14 @@
+# main.py
 import streamlit as st
+from auth import get_gspread_client, SPREADSHEET_ID
 from student_page import student_page
 from lecture_page import lecture_page
 from teacher_page import teacher_page
 from edit_profile import profile_edit_page
 from review_page import review_page  # 口コミページ
+
+# 🔑 サービスアカウントで認証
+client = get_gspread_client()
 
 # 初期化
 if "page" not in st.session_state:
@@ -24,12 +29,12 @@ if selection != st.session_state.page:
 
 # ページレンダリング
 if st.session_state.page == "学生情報登録":
-    student_page()
+    student_page(client, SPREADSHEET_ID)
 elif st.session_state.page == "プロフィール編集":
-    profile_edit_page()
+    profile_edit_page(client, SPREADSHEET_ID)
 elif st.session_state.page == "先生検索":
-    teacher_page()
+    teacher_page(client, SPREADSHEET_ID)
 elif st.session_state.page == "授業検索":
-    lecture_page()
+    lecture_page(client, SPREADSHEET_ID)
 elif st.session_state.page == "口コミ":
-    review_page()
+    review_page(client, SPREADSHEET_ID)

@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-from auth import client, SPREADSHEET_ID
 
-def student_page():
+def student_page(client, SPREADSHEET_ID):
     st.title("🏠 学生情報登録 / 確認")
 
     # セッション初期化

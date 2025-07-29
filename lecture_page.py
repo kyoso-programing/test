@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-from auth import client, SPREADSHEET_ID
 
-def lecture_page():
+def lecture_page(client, SPREADSHEET_ID):
     st.title("🔍 授業検索・履修登録")
 
     # student_id をセッションから取得

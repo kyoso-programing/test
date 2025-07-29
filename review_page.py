@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-from auth import client, SPREADSHEET_ID
 from datetime import datetime
 
-def review_page():
+def review_page(client, SPREADSHEET_ID):
     st.title("🗣️ 授業レビュー（口コミ）ページ")
 
     # 学籍番号の確認

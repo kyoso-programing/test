@@ -1,0 +1,3 @@
+# 機密ファイル除外
+client_secret.json
+.env

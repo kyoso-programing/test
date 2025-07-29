@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-from auth import client, SPREADSHEET_ID
 
-def profile_edit_page():
+def profile_edit_page(client, SPREADSHEET_ID):
     st.title("📝 プロフィール編集 + 履修管理")
 
     # セッションから student_id 取得
