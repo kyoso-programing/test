@@ -53,7 +53,16 @@ def review_page(client, SPREADSHEET_ID):
         class_id = selected_row["class_id"]
         teacher_name = selected_row.get("teacher_name1", "")
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        new_row = [class_id, selected_lecture, teacher_name, review_text, student_id, student_name, rating, now]
+        new_row = [
+            str(class_id),
+            str(selected_lecture),
+            str(teacher_name),
+            str(review_text),
+            str(student_id),
+            str(student_name),
+            int(rating),  # ← ここが重要
+            str(now)
+        ]
         review_sheet.append_row(new_row)
         st.success("レビューを投稿しました ✅")
         st.rerun()
@@ -71,8 +80,11 @@ def review_page(client, SPREADSHEET_ID):
         return
 
     # 評価を数値に変換（型エラー対策）
+    min_rating = int(min_rating)  # セレクトボックスからの値も明示的にint化
+
     df_reviews["rating"] = pd.to_numeric(df_reviews["rating"], errors="coerce")
     df_reviews = df_reviews.dropna(subset=["rating"])
+    df_reviews["rating"] = df_reviews["rating"].astype(int)  # または astype("int")
     df_reviews = df_reviews[df_reviews["rating"] >= min_rating]
 
     # キーワード検索
