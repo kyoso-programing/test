@@ -2,6 +2,22 @@ import streamlit as st
 import pandas as pd
 
 def teacher_page(client, SPREADSHEET_ID):
+    # 🔁 サイドバーにページ切り替えボタン
+    st.sidebar.markdown("### 🔁 他のページへ移動")
+    if st.sidebar.button("🏠 学生情報登録"):
+        st.session_state.page = "学生情報登録"
+        st.rerun()
+    if st.sidebar.button("📖 授業検索"):
+        st.session_state.page = "授業検索"
+        st.rerun()
+    if st.sidebar.button("🗣️ 口コミ"):
+        st.session_state.page = "口コミ"
+        st.rerun()
+    if st.sidebar.button("🗓️ プロフィール編集"):
+        st.session_state.page = "プロフィール編集"
+        st.rerun()
+
+    # 🧑‍🏫 メインのページ内容
     st.title("👨‍🏫 先生検索")
 
     try:

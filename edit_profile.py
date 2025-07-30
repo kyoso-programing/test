@@ -8,6 +8,20 @@ def normalize_day_period(dp):
     return dp
 
 def profile_edit_page(df_lectures, df_students, student_sheet, student_id):
+    st.sidebar.markdown("### 🔁 他のページへ移動")
+    if st.sidebar.button("🏠 学生情報登録"):
+        st.session_state.page = "学生情報登録"
+        st.rerun()
+    if st.sidebar.button("👨‍🏫 先生検索"):
+        st.session_state.page = "先生検索"
+        st.rerun()
+    if st.sidebar.button("📖 授業検索"):
+        st.session_state.page = "授業検索"
+        st.rerun()
+    if st.sidebar.button("🗣️ 口コミ"):
+        st.session_state.page = "口コミ"
+        st.rerun()
+
     st.header("🗓️ 時間割と履修管理")
 
     # 学生の履修中 class_ids を取得

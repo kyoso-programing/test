@@ -2,7 +2,22 @@ import streamlit as st
 import pandas as pd
 
 def lecture_page(client, SPREADSHEET_ID):
+    st.sidebar.markdown("### 🔁 他のページへ移動")
+    if st.sidebar.button("🏠 学生情報登録"):
+        st.session_state.page = "学生情報登録"
+        st.rerun()
+    if st.sidebar.button("👨‍🏫 先生検索"):
+        st.session_state.page = "先生検索"
+        st.rerun()
+    if st.sidebar.button("🗣️ 口コミ"):
+        st.session_state.page = "口コミ"
+        st.rerun()
+    if st.sidebar.button("🗓️ プロフィール編集"):
+        st.session_state.page = "プロフィール編集"
+        st.rerun()
+
     st.title("📖 授業検索・登録")
+
 
     # データ取得
     lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
