@@ -60,7 +60,7 @@ def review_page(client, SPREADSHEET_ID):
             str(review_text),
             str(student_id),
             str(student_name),
-            int(rating),  # ← ここが重要
+            int(rating),  
             str(now)
         ]
         review_sheet.append_row(new_row)
