@@ -8,13 +8,14 @@ from teacher_page import teacher_page
 from edit_profile import profile_edit_page
 from review_page import review_page
 
-import streamlit as st
 from google.oauth2.service_account import Credentials
 
-scope = ["https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-
-st.success("✅ Google認証に成功しました！")
+try:
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    sheet_names = [ws.title for ws in spreadsheet.worksheets()]
+    st.write("📄 利用可能なシート一覧:", sheet_names)
+except Exception as e:
+    st.error(f"❌ シート一覧の取得に失敗しました: {e}")
 # 🔑 サービスアカウントで認証
 client = get_gspread_client()
 
