@@ -2,75 +2,77 @@ import streamlit as st
 import pandas as pd
 
 def lecture_page(client, SPREADSHEET_ID):
-    st.title("🔍 授業検索・履修登録")
+    st.title("📖 授業検索・登録")
 
-    # student_id をセッションから取得
-    student_id = st.session_state.get("current_student_id", None)
-
-    if not student_id:
-        st.error("❌ 学籍番号が確認されていません。先に学生情報登録画面で確認してください。")
-        if st.button("🏠 ホームに戻る"):
-            st.session_state.page = "学生情報登録"
-            st.rerun()
-        return
-
-    # データ読み込み
+    # データ取得
     lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
-    student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
+    df_lectures = pd.DataFrame(lecture_sheet.get_all_records())
 
-    lectures = lecture_sheet.get_all_records()
-    students = student_sheet.get_all_records()
+    # 🔍 テキスト検索
+    keyword = st.text_input("授業名・教員名・キーワードで検索")
+    
+    # 📅 学期フィルタ
+    semesters = df_lectures["semester"].dropna().unique().tolist()
+    semester_filter = st.selectbox("学期で絞り込む", ["すべて"] + semesters)
 
-    df_lectures = pd.DataFrame(lectures)
-    df_students = pd.DataFrame(students)
+    # 🕒 時間帯フィルタ（複数選択可）
+    all_day_periods = sorted(set(dp.strip() for val in df_lectures["day_period"].dropna() for dp in str(val).split(',')))
+    day_period_filter = st.multiselect("曜日・時限で絞り込む（例: 月1, 水3）", all_day_periods)
 
-    student_row = df_students[df_students["student_id"] == student_id]
-    if student_row.empty:
-        st.error(f"❌ 学籍番号 {student_id} は student シートに存在しません。")
-        return
+    # フィルタ処理
+    if keyword:
+        keyword = keyword.lower()
+        df_lectures = df_lectures[
+            df_lectures["subject_name"].str.lower().str.contains(keyword, na=False) |
+            df_lectures["teacher_name1"].str.lower().str.contains(keyword, na=False) |
+            df_lectures.get("keyword", "").astype(str).str.lower().str.contains(keyword, na=False)
+        ]
+    if semester_filter != "すべて":
+        df_lectures = df_lectures[df_lectures["semester"] == semester_filter]
 
-    student_data = student_row.iloc[0]
-    current_subjects = student_data.get("subject_name", "")
-    selected_subjects = [s.strip() for s in current_subjects.split(";") if s.strip()]
+    if day_period_filter:
+        df_lectures = df_lectures[
+            df_lectures["day_period"].apply(lambda x: any(dp.strip() in str(x) for dp in day_period_filter))
+        ]
 
-    st.success(f"ようこそ、{student_data['name']} さん！現在の履修授業数: {len(selected_subjects)}")
+    # 学生ID処理
+    student_id = st.session_state.get("student_id")
+    df_students = pd.DataFrame()
+    student_row = pd.DataFrame()
+    current_ids = []
 
-    # 🔔 授業検索
-    search_query = st.text_input("授業名 / 教員名 / 学期 / 曜日 で検索")
+    if student_id:
+        student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
+        df_students = pd.DataFrame(student_sheet.get_all_records())
+        student_row = df_students[df_students["student_id"] == student_id]
+        if not student_row.empty:
+            current_ids = str(student_row.iloc[0].get("class_ids", "")).split(';') if student_row.iloc[0].get("class_ids") else []
+    else:
+        st.info("🔓 ログインしていないため、授業の閲覧は可能ですが、履修登録はできません。")
 
-    if search_query:
-        mask = (
-            df_lectures['subject_name'].str.contains(search_query, case=False, na=False) |
-            df_lectures['teacher_name1'].str.contains(search_query, case=False, na=False) |
-            df_lectures['semester'].astype(str).str.contains(search_query, case=False, na=False) |
-            df_lectures['day_period'].astype(str).str.contains(search_query, case=False, na=False)
-        )
+    # 表示
+    for _, row in df_lectures.iterrows():
+        class_id = str(row["class_id"])
+        is_registered = class_id in current_ids
 
-        results = df_lectures[mask]
-        st.dataframe(results)
+        faculty = row.get("faculty", "未設定")
+        comment = row.get("comments", "なし")
 
-        if not results.empty:
-            selected_subject = st.selectbox("この中から追加登録する授業を選択", results["subject_name"].unique().tolist())
+        with st.expander(f"{row['subject_name']}（{row['teacher_name1']}）[{row['semester']}・{row['day_period']}]"):
+            st.write(f"📚 教員: {row['teacher_name1']}")
+            st.write(f"🕒 学期: {row['semester']} / 時間帯: {row['day_period']}")
+            st.write(f"🏛 所属: {faculty}")
+            st.write(f"💬 備考: {comment}")
 
-            if st.button("この授業を履修登録"):
-                if selected_subject in selected_subjects:
-                    st.warning(f"授業「{selected_subject}」は既に登録されています。")
-                else:
-                    selected_subjects.append(selected_subject)
-                    new_subjects = ";".join(selected_subjects)
-
-                    idx = df_students.index[df_students["student_id"] == student_id][0]
-                    df_students.at[idx, "subject_name"] = new_subjects
-
-                    # 保存
-                    student_sheet.clear()
-                    student_sheet.append_row(df_students.columns.tolist())
-                    for _, row in df_students.iterrows():
-                        student_sheet.append_row(list(row.values))
-
-                    st.success(f"授業「{selected_subject}」を履修登録しました ✅")
+            if not student_id:
+                st.warning("ログインしていないため履修登録できません。")
+            elif is_registered:
+                st.info("✅ この授業はすでに履修済みです。")
+            else:
+                if st.button("📌 履修登録する", key=f"add_{class_id}"):
+                    current_ids.append(class_id)
+                    new_ids = ';'.join(current_ids)
+                    df_students.loc[df_students["student_id"] == student_id, "class_ids"] = new_ids
+                    student_sheet.update_cell(student_row.index[0] + 2, df_students.columns.get_loc("class_ids") + 1, new_ids)
+                    st.success("履修登録しました！")
                     st.rerun()
-
-    if st.button("🏠 ホームに戻る"):
-        st.session_state.page = "学生情報登録"
-        st.rerun()
