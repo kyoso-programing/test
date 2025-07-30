@@ -7,12 +7,6 @@ from lecture_page import lecture_page
 from teacher_page import teacher_page
 from edit_profile import profile_edit_page
 from review_page import review_page
-<<<<<<< HEAD
-=======
-
-from google.oauth2.service_account import Credentials
-
->>>>>>> 8194423e54b17da2f863082c1ea96c88b96de19b
 
 # 🔑 認証
 client = get_gspread_client()
@@ -44,7 +38,6 @@ if st.session_state.page == "学生情報登録":
     student_page(client, SPREADSHEET_ID)
 
 elif st.session_state.page == "プロフィール編集":
-<<<<<<< HEAD
     if "student_id" not in st.session_state:
         st.warning("⚠️ 学生IDが未登録です。まず「学生情報登録」で登録してください。")
     else:
@@ -64,25 +57,3 @@ elif st.session_state.page == "授業検索":
 
 elif st.session_state.page == "口コミ":
     review_page(client, SPREADSHEET_ID)
-=======
-    # Google Sheets からデータ取得
-    lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
-    student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
-    df_lectures = pd.DataFrame(lecture_sheet.get_all_records())
-    df_students = pd.DataFrame(student_sheet.get_all_records())
-
-    # 学生IDの選択（仮：最初の学生 or ID入力式）
-    if "student_id" not in st.session_state:
-        student_ids = df_students["student_id"].tolist()
-        st.session_state.student_id = st.selectbox("学生IDを選択", student_ids) if student_ids else ""
-
-    student_id = st.session_state.student_id
-
-    if student_id:
-        profile_edit_page(df_lectures, df_students, student_sheet, student_id)
-    else:
-        st.warning("学生IDが選択されていません。")
-
-
-
->>>>>>> 8194423e54b17da2f863082c1ea96c88b96de19b
