@@ -7,6 +7,14 @@ from lecture_page import lecture_page
 from teacher_page import teacher_page
 from edit_profile import profile_edit_page
 from review_page import review_page
+
+import streamlit as st
+from google.oauth2.service_account import Credentials
+
+scope = ["https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+
+st.success("✅ Google認証に成功しました！")
 # 🔑 サービスアカウントで認証
 client = get_gspread_client()
 
