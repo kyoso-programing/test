@@ -10,15 +10,15 @@ from review_page import review_page
 
 from google.oauth2.service_account import Credentials
 
+
+# 🔑 サービスアカウントで認証
+client = get_gspread_client()
 try:
     spreadsheet = client.open_by_key(SPREADSHEET_ID)
     sheet_names = [ws.title for ws in spreadsheet.worksheets()]
     st.write("📄 利用可能なシート一覧:", sheet_names)
 except Exception as e:
     st.error(f"❌ シート一覧の取得に失敗しました: {e}")
-# 🔑 サービスアカウントで認証
-client = get_gspread_client()
-
 # 初期化
 if "page" not in st.session_state:
     st.session_state.page = "学生情報登録"
