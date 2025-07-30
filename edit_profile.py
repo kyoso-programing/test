@@ -1,161 +1,96 @@
 import streamlit as st
 import pandas as pd
+import unicodedata
+import plotly.graph_objects as go
 
-def profile_edit_page(client, SPREADSHEET_ID):
-    st.title("📝 プロフィール編集 + 履修管理")
+def normalize_day_period(dp):
+    dp = unicodedata.normalize('NFKC', str(dp)).replace(" ", "").replace("　", "")
+    return dp
 
-    # セッションから student_id 取得
-    student_id = st.session_state.get("current_student_id", None)
+def profile_edit_page(df_lectures, df_students, student_sheet, student_id):
+    st.header("🗓️ 時間割と履修管理")
 
-    if not student_id:
-        st.error("❌ 学籍番号が確認されていません。先に学生情報登録画面で確認してください。")
-        if st.button("🏠 ホームに戻る"):
-            st.session_state.page = "学生情報登録"
-            st.rerun()
-        return
-
-    # スプレッドシート接続
-    student_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("student")
-    lecture_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("lecture")
-
-    students = student_sheet.get_all_records()
-    lectures = lecture_sheet.get_all_records()
-
-    df_students = pd.DataFrame(students)
-    df_lectures = pd.DataFrame(lectures)
-
-    student_row = df_students[df_students["student_id"] == student_id]
-
+    # 学生の履修中 class_ids を取得
+    student_row = df_students[df_students['student_id'] == student_id]
+    current_ids = []
     if not student_row.empty:
-        student_data = student_row.iloc[0]
-        st.success(f"ようこそ、{student_data['name']} さん！")
+        current_ids = str(student_row.iloc[0].get('class_ids', '')).split(';') if student_row.iloc[0].get('class_ids') else []
 
-        # 現在の履修授業
-        raw_subjects = student_data.get("subject_name", "")
-        selected_subjects = [s.strip() for s in raw_subjects.split(";") if s.strip()]
+    # display_label を生成（subject_name + teacher + semester + day_period）
+    df_lectures["display_label"] = df_lectures.apply(
+        lambda row: f"{row['subject_name']}（{row['teacher_name1']}）[{row['semester']}・{normalize_day_period(row['day_period'])}]", axis=1
+    )
+    display_to_id = dict(zip(df_lectures["display_label"], df_lectures["class_id"].astype(str)))
+    id_to_display = {v: k for k, v in display_to_id.items()}
 
-        st.subheader("現在の履修授業一覧")
-        st.write(selected_subjects if selected_subjects else "（なし）")
+    # 履修中データ抽出
+    selected_lectures = df_lectures[df_lectures["class_id"].astype(str).isin(current_ids)]
 
-        # 履修授業の削除機能
-        st.subheader("履修登録を削除")
-        if selected_subjects:
-            subject_to_remove = st.selectbox("削除したい授業を選択", selected_subjects, key="remove_select")
-            if st.button("この授業を削除"):
-                selected_subjects.remove(subject_to_remove)
-                new_subjects = ";".join(selected_subjects)
+    # --- 時間割表示 ---
+    st.subheader("📅 現在の時間割")
+    selected_semester = st.selectbox("表示する学期を選択", ["春", "夏", "秋", "冬"])
+    sem_df = selected_lectures[selected_lectures["semester"] == selected_semester]
+    timetable = {f"{i}限": {d: [] for d in "月火水木金"} for i in range(1, 6)}
 
-                idx = df_students.index[df_students["student_id"] == student_id][0]
-                df_students.at[idx, "subject_name"] = new_subjects
+    for _, row in sem_df.iterrows():
+        label = f"{row['subject_name']}\n{row['teacher_name1']}"
+        class_id = str(row['class_id'])
+        for slot in str(row['day_period']).split(','):
+            slot = normalize_day_period(slot.strip())
+            if len(slot) >= 2 and slot[0] in "月火水木金" and slot[1:].isdigit():
+                day = slot[0]
+                period = f"{slot[1:]}限"
+                timetable[period][day].append((class_id, label))
 
-                # 保存
-                student_sheet.clear()
-                student_sheet.append_row(df_students.columns.tolist())
-                for _, row in df_students.iterrows():
-                    student_sheet.append_row(list(row.values))
-
-                st.success(f"授業「{subject_to_remove}」を削除しました ✅")
-                st.rerun()
-
-        # 授業検索・追加登録
-        st.subheader("授業を追加で履修登録")
-        search_query = st.text_input("授業名 / 教員名 / 学期 / 曜日 で検索")
-
-        if search_query:
-            mask = (
-                df_lectures['subject_name'].str.contains(search_query, case=False, na=False) |
-                df_lectures['teacher_name1'].str.contains(search_query, case=False, na=False) |
-                df_lectures['semester'].astype(str).str.contains(search_query, case=False, na=False) |
-                df_lectures['day_period'].astype(str).str.contains(search_query, case=False, na=False)
-            )
-            results = df_lectures[mask]
-            st.dataframe(results)
-
-            if not results.empty:
-                selected_subject = st.selectbox(
-                    "この中から追加登録する授業を選択",
-                    results["subject_name"].unique().tolist()
-                )
-
-                if st.button("この授業を履修登録"):
-                    if selected_subject in selected_subjects:
-                        st.warning(f"授業「{selected_subject}」は既に登録されています。")
-                    else:
-                        selected_subjects.append(selected_subject)
-                        new_subjects = ";".join(selected_subjects)
-
-                        idx = df_students.index[df_students["student_id"] == student_id][0]
-                        df_students.at[idx, "subject_name"] = new_subjects
-
-                        # 保存
-                        student_sheet.clear()
-                        student_sheet.append_row(df_students.columns.tolist())
-                        for _, row in df_students.iterrows():
-                            student_sheet.append_row(list(row.values))
-
-                        st.success(f"授業「{selected_subject}」を履修登録しました ✅")
-                        st.rerun()
-
-        # 時間割確認
-        if selected_subjects:
-            st.subheader("🕘 時間割確認")
-            selected_lectures = df_lectures[df_lectures["subject_name"].isin(selected_subjects)]
-            st.dataframe(selected_lectures[["subject_name", "day_period"]])
-
-            timetable = {}
-            conflicts = []
-            missing_info_subjects = []
-
-            for _, row in selected_lectures.iterrows():
-                day_period = str(row["day_period"]).strip()
-
-                if not day_period:
-                    missing_info_subjects.append(row["subject_name"])
-                    continue
-
-                if day_period in timetable:
-                    conflicts.append((day_period, timetable[day_period], row["subject_name"]))
-                else:
-                    timetable[day_period] = row["subject_name"]
-
-            # 曜日・時限未登録の授業に対する対応
-            if missing_info_subjects:
-                st.info("⚠️ 以下の授業は曜日・時限が未登録です。登録してください:")
-
-                for i, subj_name in enumerate(missing_info_subjects):
-                    st.write(f"🔹 {subj_name}")
-
-                    input_day = st.text_input(f"{subj_name} の曜日", key=f"input_day_{i}")
-                    input_period = st.text_input(f"{subj_name} の時限", key=f"input_period_{i}")
-
-                    if st.button(f"{subj_name} を更新", key=f"update_{i}"):
-                        lecture_idx = df_lectures.index[df_lectures["subject_name"] == subj_name].tolist()
-                        if lecture_idx:
-                            idx = lecture_idx[0]
-                            df_lectures.at[idx, "day_period"] = f"{input_day}-{input_period}"
-
-                            # 保存
-                            lecture_sheet.clear()
-                            lecture_sheet.append_row(df_lectures.columns.tolist())
-                            for _, row in df_lectures.iterrows():
-                                lecture_sheet.append_row(list(row.values))
-
-                            st.success(f"{subj_name} の曜日・時限を更新しました ✅")
-                            st.rerun()
-                        else:
-                            st.error(f"授業「{subj_name}」が lecture シートに見つかりません。")
-
-            # 時間割の重複チェック
-            if conflicts:
-                st.warning("⚠️ 以下の時間に授業が重複しています:")
-                for day_period, subj1, subj2 in conflicts:
-                    st.write(f"- {day_period}: 「{subj1}」 と 「{subj2}」")
+    fig = go.Figure()
+    days = list("月火水木金")
+    periods = list(timetable.keys())
+    cell_text = []
+    for period in periods:
+        row = []
+        for day in days:
+            cell = timetable[period][day]
+            if not cell:
+                row.append("")
             else:
-                st.info("✅ 時間割に重複はありません。")
+                texts = []
+                for cid, label in cell:
+                    btn = st.button(f"🗑 {label}", key=f"del_{selected_semester}_{day}_{period}_{cid}")
+                    if btn:
+                        current_ids = [id for id in current_ids if id != cid]
+                        df_students.loc[df_students['student_id'] == student_id, 'class_ids'] = ';'.join(current_ids)
+                        student_sheet.update_cell(student_row.index[0] + 2, df_students.columns.get_loc("class_ids") + 1, ';'.join(current_ids))
+                        st.rerun()
+                    texts.append(label)
+                row.append("\n".join(texts))
+        cell_text.append(row)
 
-    else:
-        st.error(f"❌ 学籍番号 {student_id} は student シートに存在しません。")
+    fig.add_trace(go.Table(
+        header=dict(values=[""] + days, fill_color="black", font=dict(color="white"), align="center"),
+        cells=dict(values=[[p for p in periods]] + list(map(list, zip(*cell_text))), fill_color="#111", font=dict(color="white"), align="center")
+    ))
+    st.plotly_chart(fig, use_container_width=True, key=f"tt_{selected_semester}")
 
-    if st.button("🏠 ホームに戻る"):
-        st.session_state.page = "学生情報登録"
+    # --- 登録セクション ---
+    st.subheader("📚 履修登録")
+    unregistered = df_lectures[~df_lectures["class_id"].astype(str).isin(current_ids)]
+    options = unregistered["display_label"].tolist()
+    selected_label = st.selectbox("追加したい授業を選んでください", [""] + options)
+    if selected_label and selected_label in display_to_id:
+        selected_class_id = display_to_id[selected_label]
+        current_ids.append(selected_class_id)
+        df_students.loc[df_students['student_id'] == student_id, 'class_ids'] = ';'.join(current_ids)
+        student_sheet.update_cell(student_row.index[0] + 2, df_students.columns.get_loc("class_ids") + 1, ';'.join(current_ids))
+        st.success("授業を追加しました")
+        st.rerun()
+
+    # --- 削除セクション ---
+    st.subheader("🗑️ 履修削除")
+    selected_labels = st.multiselect("削除したい授業を選んでください", [id_to_display[cid] for cid in current_ids if cid in id_to_display])
+    if st.button("選択した授業を削除") and selected_labels:
+        delete_ids = [display_to_id[label] for label in selected_labels if label in display_to_id]
+        current_ids = [cid for cid in current_ids if cid not in delete_ids]
+        df_students.loc[df_students['student_id'] == student_id, 'class_ids'] = ';'.join(current_ids)
+        student_sheet.update_cell(student_row.index[0] + 2, df_students.columns.get_loc("class_ids") + 1, ';'.join(current_ids))
+        st.success("削除しました")
         st.rerun()
